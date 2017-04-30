@@ -2,6 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <stdint.h>
+#pragma once
 
 class Color
 {
@@ -12,8 +13,10 @@ public:
 	Color() : r(0), g(0), b(0) {}
 	Color(uint8_t rr, uint8_t gg, uint8_t bb) : r(rr), g(gg), b(bb) {}
 
+	// Conversion to sf::Color
 	operator sf::Color();
 
+	// Static color constants
 	static const Color Red;
 	static const Color Green;
 	static const Color Blue;

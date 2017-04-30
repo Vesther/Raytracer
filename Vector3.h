@@ -8,6 +8,7 @@
 
 #include <math.h> // For sqrt() in the length() method
 #include <iostream>
+#pragma once
 
 template <class T> class Vector3
 {
