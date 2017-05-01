@@ -49,7 +49,7 @@ Camera cam;
 // Degree to radian conversion helper
 float rad(float degrees)
 {
-	return (degrees*M_PI) / 180;
+	return (float)((degrees*M_PI) / 180);
 }
 
 // Accepts pixel coordinates of the resulting image and returns a directional ray for our "camera" 
@@ -94,7 +94,7 @@ void render_part(int line_from, int line_to, const Scene &scene, sf::RenderWindo
 
 			Ray ray = create_ray(j, i, scene);
 
-			for (int k = 0; k < scene.objects.size(); k++)
+			for (unsigned int k = 0; k < scene.objects.size(); k++)
 			{
 				Object& obj = *scene.objects[k];
 				// If we hit something, color it with the hit object's color.
@@ -130,14 +130,15 @@ void render_part(int line_from, int line_to, const Scene &scene, sf::RenderWindo
 sf::Image render(Scene scene, sf::RenderWindow &window)
 {
 	// Initialize Bitmap
-	image.create(scene.width, scene.height);
+	image.create(scene.width, scene.height, sf::Color::Black);
 
 	// Setup renderthreads
-	// A bit of automated benchmarking has shown 4 to be the optimal thread count, tested on a i7-4770K Quadcore CPU with Hyperthreading (8 Logical Cores)
-	const int thread_count = 8; 
+	// Autodetect hardware logical core count
+	const int thread_count = std::thread::hardware_concurrency(); 
+	//std::cout << thread_count;
 
 	std::list<std::thread*> threads;
-	int step = floor(scene.height / thread_count);
+	int step = (int)floor(scene.height / thread_count);
 
 	// Launch threads
 	for (int i = 0; i < thread_count-1; i++)
