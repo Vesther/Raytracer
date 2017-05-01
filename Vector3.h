@@ -62,6 +62,11 @@ public:
 		return Vector3<T>(x * right.x, y * right.y, z * right.z);
 	}
 
+	Vector3<T> operator* (float right) const
+	{
+		return Vector3<T>(x * right, y * right, z * right);
+	}
+
 	friend std::ostream& operator<<(std::ostream& stream, const Vector3<T>& v)
 	{
 		stream << "[" << v.x << ", " << v.y << ", " << v.z << "]";
@@ -69,6 +74,7 @@ public:
 	}
 
 };
+
 
 // Aliases for common Vector types
 typedef Vector3<float> Vector3f;

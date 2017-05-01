@@ -7,8 +7,10 @@
 class Object {
 public:
 	Color color;
+	float reflectivity = 1.0f;
 
 	virtual float intersects(const Ray& ray) = 0;
+	virtual Vector3f surface_normal(Vector3f hit_point) = 0;
 };
 
 class Sphere : public Object
@@ -50,6 +52,11 @@ public:
 		// If we get to this point, we return the distance
 		return (t0 < t1 ? t0 : t1);
 	}
+
+	Vector3f surface_normal(Vector3f hit_point)
+	{
+		return (hit_point - this->center).normalize();
+	}
 };
 
 
@@ -82,5 +89,10 @@ public:
 			return distance;
 		else
 			return -1;
+	}
+
+	Vector3f surface_normal(Vector3f hit_point)
+	{
+		return normal*-1;
 	}
 };

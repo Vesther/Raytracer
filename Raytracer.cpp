@@ -23,6 +23,17 @@ const int image_height = 600;
 // Note: Very expensive, slows rendering by some 50%;
 const bool pretty = false;
 
+class Light
+{
+public:
+	Vector3f direction;
+	Color color;
+	float intensity;
+	
+	Light() : direction(Vector3f(0.57735026f, -0.57735026f, -0.57735026f)), color(Color::White), intensity(1.0f) {}
+};
+
+
 // Defines the Scene, "World" to be rendered
 class Scene {
 public:
@@ -33,6 +44,8 @@ public:
 	float fov;
 	// Collection of objects to be rendered
 	std::vector<Object*> objects;
+
+	Light light;
 };
 
 // TODO: Program camera rotation
@@ -44,6 +57,7 @@ public:
 	Camera() : position(Vector3f(0,0,0)), direction(Vector3f(0, 0, -1.0f)) { }
 };
 Camera cam;
+
 
 
 // Degree to radian conversion helper
@@ -86,7 +100,7 @@ std::mutex render_mutex;
 Color trace(Ray &ray, const Scene &scene)
 {
 	Color pixel_color(16, 16, 16);
-	float closest_distance = INT_MAX;
+	float closest_distance = (float)INT_MAX;
 	Object* closest = nullptr;
 
 	for (unsigned int k = 0; k < scene.objects.size(); k++)
@@ -103,7 +117,13 @@ Color trace(Ray &ray, const Scene &scene)
 	}
 
 	if (closest != nullptr)
-		pixel_color = closest->color;
+	{
+		Vector3f hit_point = ray.origin + (ray.direction * closest_distance);
+		Vector3f surface_normal = closest->surface_normal(hit_point);
+		Vector3f direction_to_light = scene.light.direction * -1;
+		float light_power = std::max(surface_normal.dot(direction_to_light) * scene.light.intensity, 0.0f);
+		pixel_color = (closest->color * scene.light.color) * light_power * closest->reflectivity;
+	}
 
 	return pixel_color;
 }
@@ -204,7 +224,7 @@ int main()
 	test_scene.objects.push_back(&test_sphere5);
 
 	// A test Plane in the world
-	Plane* test_plane = new Plane(Vector3f(0, 0, -10.0f), Vector3f(0, 0, -1) , Color(32,32,32));
+	Plane* test_plane = new Plane(Vector3f(0, 0, -10.0f), Vector3f(0, 0, -1), Color(135, 206, 255));
 	test_scene.objects.push_back(test_plane);
 
 	Plane* test_plane2 = new Plane(Vector3f(0, -2.0f, -10.0f), Vector3f(0, -1, 0), Color(64, 64, 64));
