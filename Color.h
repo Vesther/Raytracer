@@ -22,4 +22,7 @@ public:
 	static const Color Blue;
 	static const Color Black;
 	static const Color White;
+	static const Color Cyan;
+	static const Color Magenta;
+	static const Color Yellow;
 };

@@ -83,27 +83,39 @@ sf::Sprite sprite;
 
 std::mutex render_mutex;
 
+Color trace(Ray &ray, const Scene &scene)
+{
+	Color pixel_color(16, 16, 16);
+	float closest_distance = INT_MAX;
+	Object* closest = nullptr;
+
+	for (unsigned int k = 0; k < scene.objects.size(); k++)
+	{
+		Object& obj = *scene.objects[k];
+		// If we hit something, color it with the hit object's color.
+		float distance = obj.intersects(ray);
+		if (distance == -1) continue;
+		if (distance < closest_distance)
+		{
+			closest_distance = distance;
+			closest = &obj;
+		}
+	}
+
+	if (closest != nullptr)
+		pixel_color = closest->color;
+
+	return pixel_color;
+}
+
 void render_part(int line_from, int line_to, const Scene &scene, sf::RenderWindow* window)
 {
 	for (int i = line_from; i < line_to; i++)
 	{
 		for (int j = 0; j < scene.width; j++)
 		{
-			// This variable holds the resulting color of our trace or grey if nothing is hit.
-			Color pixel_color(16, 16, 16);
-
 			Ray ray = create_ray(j, i, scene);
-
-			for (unsigned int k = 0; k < scene.objects.size(); k++)
-			{
-				Object& obj = *scene.objects[k];
-				// If we hit something, color it with the hit object's color.
-				if (obj.intersects(ray) != -1)
-				{
-					pixel_color = obj.color;
-				}
-				image.setPixel(j, i, pixel_color);
-			}
+			image.setPixel(j, i, trace(ray, scene));
 		}
 
 		// Note: This makes the rendering process "animated" and lets you see the threads at work.
@@ -187,6 +199,9 @@ int main()
 
 	Sphere test_sphere4(Vector3f(-0.4f, -0.4f, -1.0f), 0.5f, Color::White);
 	test_scene.objects.push_back(&test_sphere4);
+
+	Sphere test_sphere5(Vector3f(-2, -0, -8.0f), 2.0f, Color::Yellow);
+	test_scene.objects.push_back(&test_sphere5);
 
 	// A test Plane in the world
 	//Plane* test_plane = new Plane(Vector3f(0, 0, 0), Vector3f(0, -1, 0) , Color::Red);
