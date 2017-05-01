@@ -71,17 +71,15 @@ public:
 		Ray normalized = ray;
 		normalized.direction.normalize();
 		float denominator = normal.dot(normalized.direction);
-		/*
 		float distance = -1;
 		if (denominator > 1e-6)
 		{
-			Vector3f v = p - ray.origin;
+			Vector3f v = origin - ray.origin;
 			distance = v.dot(normal) / denominator;
 		}
-		*/
 		//printf("%f\n", denominator);
 		if (abs(denominator) > 0.0000001)
-			return denominator;
+			return distance;
 		else
 			return -1;
 	}

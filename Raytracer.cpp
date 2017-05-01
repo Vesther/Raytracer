@@ -204,8 +204,11 @@ int main()
 	test_scene.objects.push_back(&test_sphere5);
 
 	// A test Plane in the world
-	//Plane* test_plane = new Plane(Vector3f(0, 0, 0), Vector3f(0, -1, 0) , Color::Red);
-	//test_scene.objects.push_back(test_plane);
+	Plane* test_plane = new Plane(Vector3f(0, 0, -10.0f), Vector3f(0, 0, -1) , Color(32,32,32));
+	test_scene.objects.push_back(test_plane);
+
+	Plane* test_plane2 = new Plane(Vector3f(0, -2.0f, -10.0f), Vector3f(0, -1, 0), Color(64, 64, 64));
+	test_scene.objects.push_back(test_plane2);
 
 	// SFML Window creation
 	sf::RenderWindow window(sf::VideoMode(image_width, image_height), "Raytracer v0.1");
@@ -218,7 +221,6 @@ int main()
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
 	std::cout << "Rendered in " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "ms";
 
-	
 	// Main SFML loop
 	while (window.isOpen())
 	{
