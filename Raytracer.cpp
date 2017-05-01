@@ -21,7 +21,7 @@ const int image_height = 600;
 
 // Set this to true to enable animated rendering, eg. updating of the RenderWindow while it is rendering.
 // Note: Very expensive, slows rendering by some 50%;
-const bool pretty = true;
+const bool pretty = false;
 
 // Defines the Scene, "World" to be rendered
 class Scene {
@@ -34,6 +34,16 @@ public:
 	// Collection of objects to be rendered
 	std::vector<Object*> objects;
 };
+
+// TODO: Program camera rotation
+class Camera {
+public:
+	Vector3f position;
+	Vector3f direction;
+
+	Camera() : position(Vector3f(0,0,0)), direction(Vector3f(0, 0, -1.0f)) { }
+};
+Camera cam;
 
 
 // Degree to radian conversion helper
@@ -56,8 +66,8 @@ Ray create_ray(int x, int y, Scene scene)
 	float sensor_y = (1.0f - ((y + 0.5f) / scene.height) * 2.0f) * fov_correction;
 
 	Ray ray;
-	// Initialize Origin to [0,0,0], our point of ray casting
-	ray.origin = Vector3f();
+	// Initialize Origin to cam.position, our point of ray casting
+	ray.origin = cam.position;
 	// Set the direction vector to a normalized version of our calculated position.
 	ray.direction = Vector3f(sensor_x, sensor_y, -1.0f).normalize();
 
@@ -124,7 +134,7 @@ sf::Image render(Scene scene, sf::RenderWindow &window)
 
 	// Setup renderthreads
 	// A bit of automated benchmarking has shown 4 to be the optimal thread count, tested on a i7-4770K Quadcore CPU with Hyperthreading (8 Logical Cores)
-	const int thread_count = 4; 
+	const int thread_count = 8; 
 
 	std::list<std::thread*> threads;
 	int step = floor(scene.height / thread_count);
@@ -171,9 +181,15 @@ int main()
 	Sphere test_sphere2(Vector3f(0, 3, -5.0f), 0.8f, Color::Blue);
 	test_scene.objects.push_back(&test_sphere2);
 
+	Sphere test_sphere3(Vector3f(0.5f, 0.5f, -2.0f), 0.7f, Color::Red);
+	test_scene.objects.push_back(&test_sphere3);
+
+	Sphere test_sphere4(Vector3f(-0.4f, -0.4f, -1.0f), 0.5f, Color::White);
+	test_scene.objects.push_back(&test_sphere4);
+
 	// A test Plane in the world
-	Plane* test_plane = new Plane(Vector3f(0, -3, -5.0f), Vector3f(0,0.5f,0.5f), Color::Red);
-	test_scene.objects.push_back(test_plane);
+	//Plane* test_plane = new Plane(Vector3f(0, 0, 0), Vector3f(0, -1, 0) , Color::Red);
+	//test_scene.objects.push_back(test_plane);
 
 	// SFML Window creation
 	sf::RenderWindow window(sf::VideoMode(image_width, image_height), "Raytracer v0.1");
@@ -185,6 +201,7 @@ int main()
 	std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
 	std::cout << "Rendered in " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "ms";
+
 	
 	// Main SFML loop
 	while (window.isOpen())
@@ -203,6 +220,8 @@ int main()
 		}
 
 		window.clear();
+		cam.position = cam.position + Vector3f(0, 0, -0.02f);
+		render(test_scene, window);
 		window.draw(sprite);
 		window.display();
 	}

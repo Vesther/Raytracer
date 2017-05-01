@@ -52,20 +52,25 @@ public:
 	}
 };
 
+
+// Not working, too tired and too late to figure out why.
+// In theory, if the dot product of a ray's direction vector and a plane's normal vector is anything else than 0, they will eventually intersect.
 class Plane : public Object
 {
 public:
-	Vector3f p;
+	Vector3f origin;
 	Vector3f normal;
 
-	Plane(Vector3f p, Vector3f normal, Color color) : p(p), normal(normal) 
+	Plane(Vector3f origin, Vector3f normal, Color color) : origin(origin), normal(normal) 
 	{
 		this->color = color;
 	}
 
 	float intersects(const Ray& ray)
 	{
-		float denominator = normal.dot(ray.direction);
+		Ray normalized = ray;
+		normalized.direction.normalize();
+		float denominator = normal.dot(normalized.direction);
 		/*
 		float distance = -1;
 		if (denominator > 1e-6)
@@ -74,7 +79,8 @@ public:
 			distance = v.dot(normal) / denominator;
 		}
 		*/
-		if (denominator > 0.0001)
+		//printf("%f\n", denominator);
+		if (abs(denominator) > 0.0000001)
 			return denominator;
 		else
 			return -1;
