@@ -26,6 +26,11 @@ public:
 		return Color(r * 255 * right / 255, g * 255 * right / 255, b * 255 * right / 255);
 	}
 
+	Color operator+(Color& right)
+	{
+		return Color(std::min(r + right.r, 255), std::min(g + right.g, 255), std::min(b + right.b, 255));
+	}
+
 	// Static color constants
 	static const Color Red;
 	static const Color Green;

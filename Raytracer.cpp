@@ -30,7 +30,7 @@ public:
 	Color color;
 	float intensity;
 	
-	Light() : direction(Vector3f(0.57735026f, -0.57735026f, -0.57735026f)), color(Color::White), intensity(1.0f) {}
+	Light(Vector3f direction, Color color, float intensity) : direction(direction), color(color), intensity(intensity) {}
 };
 
 
@@ -45,7 +45,7 @@ public:
 	// Collection of objects to be rendered
 	std::vector<Object*> objects;
 
-	Light light;
+	std::vector<Light*> lights;
 	float shadow_bias;
 };
 
@@ -148,16 +148,23 @@ Color get_pixel_color(Ray &ray, const Scene &scene)
 
 	if (hit.object != nullptr)
 	{
-		Vector3f direction_to_light = scene.light.direction * -1;
-		// Check if it is in light
-		Ray shadow_ray;
-		shadow_ray.origin = hit.point + (hit.surface_normal * scene.shadow_bias);
-		shadow_ray.direction = direction_to_light;
-		HitResult shadow_trace = trace(shadow_ray, scene);
-		bool in_light = shadow_trace.object == nullptr;
-		float light_intensity = (in_light ? scene.light.intensity : 0.0f);
-		float light_power = std::max(hit.surface_normal.dot(direction_to_light) * light_intensity, 0.0f);
-		pixel_color = (hit.object->color * scene.light.color) * light_power * hit.object->reflectivity;
+		pixel_color = Color(0, 0, 0);
+		for (int i = 0; i < scene.lights.size(); i++)
+		{
+			Light& light = *scene.lights[i];
+			Vector3f direction_to_light = light.direction * -1;
+			// Check if it is in light
+			Ray shadow_ray;
+			shadow_ray.origin = hit.point + (hit.surface_normal * scene.shadow_bias);
+			shadow_ray.direction = direction_to_light;
+			HitResult shadow_trace = trace(shadow_ray, scene);
+			bool in_light = shadow_trace.object == nullptr;
+			float light_intensity = (in_light ? light.intensity : 0.0f);
+			float light_power = std::max(hit.surface_normal.dot(direction_to_light) * light_intensity, 0.0f);
+			Color light_color = light.color * light_power * hit.object->reflectivity;
+			pixel_color = pixel_color + hit.object->color * light_color;
+		}
+	
 	}
 
 	return pixel_color;
@@ -268,6 +275,15 @@ int main()
 
 	Plane* test_plane2 = new Plane(Vector3f(0, -2.0f, -10.0f), Vector3f(0, -1, 0), Color(64, 64, 64));
 	test_scene.objects.push_back(test_plane2);
+
+	Light light1(Vector3f(1, -1, -1).normalize(), Color(255, 165, 0), 1.0f);
+	test_scene.lights.push_back(&light1);
+
+	Light light2(Vector3f(-1, -1, -1).normalize(), Color::Blue, 0.8f);
+	test_scene.lights.push_back(&light2);
+
+	Light light3(Vector3f(-1, -1, -2).normalize(), Color::Magenta, 0.3f);
+	test_scene.lights.push_back(&light3);
 
 	// SFML Window creation
 	sf::RenderWindow window(sf::VideoMode(image_width, image_height), "Raytracer v0.1");
