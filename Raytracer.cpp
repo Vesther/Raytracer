@@ -46,6 +46,7 @@ public:
 	std::vector<Object*> objects;
 
 	Light light;
+	float shadow_bias;
 };
 
 // TODO: Program camera rotation
@@ -97,11 +98,23 @@ sf::Sprite sprite;
 
 std::mutex render_mutex;
 
-Color trace(Ray &ray, const Scene &scene)
+class HitResult
 {
-	Color pixel_color(16, 16, 16);
+public:
+	Vector3f point;
+	Vector3f surface_normal;
+	Object* object;
+
+	HitResult() : object(nullptr) {}
+	HitResult(Vector3f point, Vector3f surface_normal, Object* object) : point(point), surface_normal(surface_normal), object(object) {}
+};
+
+HitResult trace(Ray &ray, const Scene &scene)
+{
 	float closest_distance = (float)INT_MAX;
-	Object* closest = nullptr;
+	Object *closest = nullptr;
+
+	HitResult hit;
 
 	for (unsigned int k = 0; k < scene.objects.size(); k++)
 	{
@@ -118,11 +131,33 @@ Color trace(Ray &ray, const Scene &scene)
 
 	if (closest != nullptr)
 	{
-		Vector3f hit_point = ray.origin + (ray.direction * closest_distance);
-		Vector3f surface_normal = closest->surface_normal(hit_point);
+		hit.object = closest;
+		hit.point = ray.origin + (ray.direction * closest_distance);
+		hit.surface_normal = hit.object->surface_normal(hit.point);
+	}
+
+	return hit;
+}
+
+Color get_pixel_color(Ray &ray, const Scene &scene)
+{
+	Color pixel_color(16, 16, 16);
+
+	HitResult hit = trace(ray, scene);
+
+
+	if (hit.object != nullptr)
+	{
 		Vector3f direction_to_light = scene.light.direction * -1;
-		float light_power = std::max(surface_normal.dot(direction_to_light) * scene.light.intensity, 0.0f);
-		pixel_color = (closest->color * scene.light.color) * light_power * closest->reflectivity;
+		// Check if it is in light
+		Ray shadow_ray;
+		shadow_ray.origin = hit.point + (hit.surface_normal * scene.shadow_bias);
+		shadow_ray.direction = direction_to_light;
+		HitResult shadow_trace = trace(shadow_ray, scene);
+		bool in_light = shadow_trace.object == nullptr;
+		float light_intensity = (in_light ? scene.light.intensity : 0.0f);
+		float light_power = std::max(hit.surface_normal.dot(direction_to_light) * light_intensity, 0.0f);
+		pixel_color = (hit.object->color * scene.light.color) * light_power * hit.object->reflectivity;
 	}
 
 	return pixel_color;
@@ -135,7 +170,7 @@ void render_part(int line_from, int line_to, const Scene &scene, sf::RenderWindo
 		for (int j = 0; j < scene.width; j++)
 		{
 			Ray ray = create_ray(j, i, scene);
-			image.setPixel(j, i, trace(ray, scene));
+			image.setPixel(j, i, get_pixel_color(ray, scene));
 		}
 
 		// Note: This makes the rendering process "animated" and lets you see the threads at work.
@@ -206,6 +241,7 @@ int main()
 	test_scene.fov = 90;
 	test_scene.width = image_width;
 	test_scene.height = image_height;
+	test_scene.shadow_bias = 0.00001f;
 
 	// A sphere to be rendered in the world
 	Sphere test_sphere1(Vector3f(0, 0, -5.0f), 1.0f, Color::Green);
@@ -222,6 +258,9 @@ int main()
 
 	Sphere test_sphere5(Vector3f(-2, -0, -8.0f), 2.0f, Color::Yellow);
 	test_scene.objects.push_back(&test_sphere5);
+
+	Sphere test_sphere6(Vector3f(-2, 2, -3.5f), 1.0f, Color::Cyan);
+	test_scene.objects.push_back(&test_sphere6);
 
 	// A test Plane in the world
 	Plane* test_plane = new Plane(Vector3f(0, 0, -10.0f), Vector3f(0, 0, -1), Color(135, 206, 255));
