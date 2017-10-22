@@ -8,6 +8,7 @@ class Object {
 public:
 	Color color;
 	float reflectivity = 1.0f;
+	std::string debugID = "UNDEFINED!";
 
 	virtual float intersects(const Ray& ray) = 0;
 	virtual Vector3f surface_normal(Vector3f hit_point) = 0;
@@ -75,20 +76,19 @@ public:
 
 	float intersects(const Ray& ray)
 	{
-		Ray normalized = ray;
-		normalized.direction.normalize();
-		float denominator = normal.dot(normalized.direction);
-		float distance = -1;
-		if (denominator > 1e-6)
+		double denom = normal.dot(ray.direction);
+		if (denom > 1e-6)
 		{
-			Vector3f v = origin - ray.origin;
-			distance = v.dot(normal) / denominator;
+			Vector3f v = this->origin - ray.origin;
+			float distance = v.dot(normal);
+			distance = distance / denom;
+			if (distance >= 0.0f)
+			{
+				return distance;
+			}
+			else return -1;
 		}
-		//printf("%f\n", denominator);
-		if (abs(denominator) > 0.0000001)
-			return distance;
-		else
-			return -1;
+		else return -1;
 	}
 
 	Vector3f surface_normal(Vector3f hit_point)

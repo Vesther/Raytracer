@@ -23,7 +23,7 @@ public:
 
 	Color operator*(const float right) const
 	{
-		return Color(r * 255 * right / 255, g * 255 * right / 255, b * 255 * right / 255);
+		return Color(std::min((int)((float)r * right), 255), std::min((int)((float)g * right), 255), std::min((int)((float)b * right), 255));
 	}
 
 	Color operator+(Color& right)

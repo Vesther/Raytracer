@@ -14,14 +14,18 @@
 #include <mutex>
 #include <chrono> // Benchmarking
 #include <iostream> // Debug messages
+#include <string>
 
 #define M_PI 3.14159265358979323846
-const int image_width = 800;
-const int image_height = 600;
+const int image_width = 1920;
+const int image_height = 1080;
 
 // Set this to true to enable animated rendering, eg. updating of the RenderWindow while it is rendering.
 // Note: Very expensive, slows rendering by some 50%;
 const bool pretty = false;
+
+// If set to true, will render the result to result.png in the executable's directory in addition to displaying
+const bool render_to_file = true;
 
 class Light
 {
@@ -31,6 +35,16 @@ public:
 	float intensity;
 	
 	Light(Vector3f direction, Color color, float intensity) : direction(direction), color(color), intensity(intensity) {}
+};
+
+class SphericalLight
+{
+public:
+	Vector3f position;
+	Color color;
+	float intensity;
+
+	SphericalLight(Vector3f position, Color color, float intensity) : position(position), color(color), intensity(intensity) {}
 };
 
 
@@ -46,6 +60,7 @@ public:
 	std::vector<Object*> objects;
 
 	std::vector<Light*> lights;
+	std::vector<SphericalLight*> spherical_lights;
 	float shadow_bias;
 };
 
@@ -111,7 +126,7 @@ public:
 
 HitResult trace(Ray &ray, const Scene &scene)
 {
-	float closest_distance = (float)INT_MAX;
+	float closest_distance = 0;
 	Object *closest = nullptr;
 
 	HitResult hit;
@@ -122,7 +137,7 @@ HitResult trace(Ray &ray, const Scene &scene)
 		// If we hit something, color it with the hit object's color.
 		float distance = obj.intersects(ray);
 		if (distance == -1) continue;
-		if (distance < closest_distance)
+		if (distance < closest_distance || closest == nullptr)
 		{
 			closest_distance = distance;
 			closest = &obj;
@@ -145,10 +160,11 @@ Color get_pixel_color(Ray &ray, const Scene &scene)
 
 	HitResult hit = trace(ray, scene);
 
-
 	if (hit.object != nullptr)
 	{
+
 		pixel_color = Color(0, 0, 0);
+		
 		for (int i = 0; i < scene.lights.size(); i++)
 		{
 			Light& light = *scene.lights[i];
@@ -161,6 +177,27 @@ Color get_pixel_color(Ray &ray, const Scene &scene)
 			bool in_light = shadow_trace.object == nullptr;
 			float light_intensity = (in_light ? light.intensity : 0.0f);
 			float light_power = std::max(hit.surface_normal.dot(direction_to_light) * light_intensity, 0.0f);
+			Color light_color = light.color * light_power * hit.object->reflectivity;
+			pixel_color = pixel_color + hit.object->color * light_color;
+		}
+		
+		for (int i = 0; i < scene.spherical_lights.size(); i++)
+		{
+			SphericalLight& light = *scene.spherical_lights[i];
+			// Get normalized vector defining the direction from our point to the light
+			Vector3f direction_to_light = (light.position - hit.point).normalize();
+			// Check if it is in light
+			Ray shadow_ray;
+			shadow_ray.origin = hit.point + (hit.surface_normal * scene.shadow_bias);
+			shadow_ray.direction = direction_to_light;
+
+			HitResult shadow_trace = trace(shadow_ray, scene);
+			bool in_light = shadow_trace.object == nullptr; // In Light detection is fucked.
+			//if (!in_light)
+				//std::cout << direction_to_light;
+			
+			float light_intensity = (in_light ? light.intensity/(4*M_PI*std::powf((light.position - hit.point).length(),2)) : 0.0f);
+			float light_power = std::abs(hit.surface_normal.dot(direction_to_light)) * light_intensity;
 			Color light_color = light.color * light_power * hit.object->reflectivity;
 			pixel_color = pixel_color + hit.object->color * light_color;
 		}
@@ -201,7 +238,7 @@ void render_part(int line_from, int line_to, const Scene &scene, sf::RenderWindo
 // The main render function.
 // Note: This is multithreaded, it launches several render threads sharing the workload to take advantage of multicore systems.
 // Also: Threads != Cores, the Operating System has to worry about Thread->Core allocation, this is just to enable the OS to do so.
-sf::Image render(Scene scene, sf::RenderWindow &window)
+sf::Image render(Scene scene, sf::RenderWindow &window, int frameNo)
 {
 	// Initialize Bitmap
 	image.create(scene.width, scene.height, sf::Color::Black);
@@ -231,6 +268,9 @@ sf::Image render(Scene scene, sf::RenderWindow &window)
 		threads.pop_back();
 	}
 
+	if (render_to_file)
+		image.saveToFile((std::string)"result" + std::to_string(frameNo) + (std::string)".png");
+
 	window.setActive(true);
 	texture.loadFromImage(image);
 	sprite.setTexture(texture, true);
@@ -257,7 +297,7 @@ int main()
 	Sphere test_sphere2(Vector3f(0, 3, -5.0f), 0.8f, Color::Blue);
 	test_scene.objects.push_back(&test_sphere2);
 
-	Sphere test_sphere3(Vector3f(0.5f, 0.5f, -2.0f), 0.7f, Color::Red);
+	Sphere test_sphere3(Vector3f(1.0f, 0.5f, -2.0f), 0.7f, Color::Red);
 	test_scene.objects.push_back(&test_sphere3);
 
 	Sphere test_sphere4(Vector3f(-0.4f, -0.4f, -1.0f), 0.5f, Color::White);
@@ -271,10 +311,12 @@ int main()
 
 	// A test Plane in the world
 	Plane* test_plane = new Plane(Vector3f(0, 0, -10.0f), Vector3f(0, 0, -1), Color(135, 206, 255));
+	test_plane->debugID = "BackPlane";
 	test_scene.objects.push_back(test_plane);
 
 	Plane* test_plane2 = new Plane(Vector3f(0, -2.0f, -10.0f), Vector3f(0, -1, 0), Color(64, 64, 64));
-	test_scene.objects.push_back(test_plane2);
+	test_plane2->debugID = "FloorPlane";
+	//test_scene.objects.push_back(test_plane2);
 
 	Light light1(Vector3f(1, -1, -1).normalize(), Color(255, 165, 0), 1.0f);
 	test_scene.lights.push_back(&light1);
@@ -285,16 +327,21 @@ int main()
 	Light light3(Vector3f(-1, -1, -2).normalize(), Color::Magenta, 0.3f);
 	test_scene.lights.push_back(&light3);
 
+	SphericalLight sLight1(Vector3f(0, 0, -2.0f), Color::White, 300.0f);
+	test_scene.spherical_lights.push_back(&sLight1);
+
 	// SFML Window creation
 	sf::RenderWindow window(sf::VideoMode(image_width, image_height), "Raytracer v0.1");
 	window.setActive(false);
 
 	// Benchmarking of rendering call
 	std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-	render(test_scene, window);
+	render(test_scene, window, 0);
 	std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
-	std::cout << "Rendered in " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "ms";
+	std::cout << "Rendered in " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "ms" << "\n";
+
+	int frameNo = 1;
 
 	// Main SFML loop
 	while (window.isOpen())
@@ -310,13 +357,59 @@ int main()
 				window.close();
 				EXIT_SUCCESS;
 			}
+
+			if (event.type == sf::Event::MouseButtonPressed)
+			{
+				if (event.mouseButton.button == sf::Mouse::Left)
+				{
+					std::cout << "\nThe left button was pressed" << std::endl;
+					std::cout << "--------------------------------------------" << std::endl;
+					std::cout << "Clicked window x: " << event.mouseButton.x << std::endl;
+					std::cout << "Clicked window y: " << event.mouseButton.y << std::endl;
+
+					const int &x = event.mouseButton.x;
+					const int &y = event.mouseButton.y;
+
+					Ray ray = create_ray(x, y, test_scene);
+					std::cout << "Ray direction: " << ray.direction << std::endl;
+					std::cout << "Ray origin: " << ray.origin << std::endl;
+
+					HitResult hit = trace(ray, test_scene);
+					std::cout << "Hit object ID: " << hit.object->debugID << std::endl;
+					std::cout << "Hit point: " << hit.point << std::endl;
+					std::cout << "Hit surface normal: " << hit.surface_normal << std::endl;
+					//hit.object->color = Color::Red;
+
+					// Check for collision on the way to our sphereLight
+					SphericalLight& light = *test_scene.spherical_lights[0];
+					// Get normalized vector defining the direction from our point to the light
+					Vector3f direction_to_light = (light.position - hit.point).normalize();
+					Ray shadow_ray;
+					shadow_ray.origin = hit.point + (hit.surface_normal * test_scene.shadow_bias);
+					shadow_ray.direction = direction_to_light;
+
+					HitResult shadow_trace = trace(shadow_ray, test_scene);
+					bool in_light = shadow_trace.object == nullptr; // In Light detection is fucked.
+
+					if(!in_light) 
+						shadow_trace.object->color = Color(255, 105, 180);
+
+					std::cout << "Point is in light: " << (in_light ? "TRUE" : "FALSE") << std::endl;
+				}
+			}
 		}
 
+
 		window.clear();
-		cam.position = cam.position + Vector3f(0, 0, -0.02f);
-		render(test_scene, window);
+		sLight1.position = sLight1.position + Vector3f(0, 0.08f, 0.0f);
+		cam.position = cam.position + Vector3f(0, 0, 0.01f);
+		test_sphere1.center = test_sphere1.center + Vector3f(0, 0.1, 0.0f);
+		test_sphere3.center = test_sphere3.center - Vector3f(-0.1, 0, 0.0f);
+
+		render(test_scene, window, frameNo);
 		window.draw(sprite);
 		window.display();
+		++frameNo;
 	}
 
 	return 0;
